@@ -1,0 +1,47 @@
+-------------------------------------
+    Paradigmas de Programación
+    TGR 1
+    Carlos Torres Paz
+    carlos.torres@udc.es
+-------------------------------------
+
+Cálculo del n-ésimo número de Fibonacci
+
+La implementación realizada consiste en la combinación de dos métodos diferentes para calcular el n-ésimo número de Fibonacci
+
+El primer método sigue la fórmula:
+    Fib(n) para n pares:
+        Fib(n) = [ 2*Fib(k) + Fib(k)]*Fib(k), siendo k=n/2
+    Fib(n) para n impares:
+        Fib(n) = Fib(k)**2 + Fib(k-1)**2, siendo k=(n+1)/2
+
+El segundo método sigue la fórmula:
+
+    ( 1 1 ) ^ n     ( Fib(n+1) Fib(n)    )
+    ( 1 0 )      =  ( Fib(n)   Fib(n-1 ) )
+
+
+Lo que hago es empezar a calcular el n-ésimo Fibonacci utilizando el primer método, que es muy rápido al principio ( complejidad O(log n) ) pero que
+tiene el problema de que repite algunos cálculos.
+
+Por eso, por debajo de un umbral, cambio al segundo método, que es algo más lento para n muy grandes, pero no repite cálculos (complejidad O(log n) también).
+
+A través de pruebas empíricas he determinado que el umbral idóneo es aproximadamente 75.000
+
+Las funciones NO son recursivas terminales, pero dada su alta eficiencia esto no resulta relevante, ya que se pueden calcular Fib(n) con n tan grandes
+que los tiempos de cálculo superan los 45 minutos sin que se produzca un Stack Overflow
+
+Tiempos de referencia:
+
+fib(42) con la función de referencia que se da en el enunciado:
+
+let rec fib n = if n > 1 then fib (n-1) + fib (n-2) else n;;
+
+Tarda 28.609 segundos en una Surface Book2 con procesador Intel Core i5-7300 y 8GB de RAM
+
+fib(500_000) con la implementación mejorada tarda 0.052 segundos
+
+INSTRUCCIONES DE COMPILACIÓN:
+
+Se adjunta un archivo Makefile para que la compilación del programa sea simplemente con la orden "make"
+La máquina en la que se compila debe tener instalado el compilador ocamlc, el front-end ocamlfind y el paquete Zarith
