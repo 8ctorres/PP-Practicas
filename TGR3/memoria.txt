@@ -1,0 +1,120 @@
+Memoria TGR 3 Paradigmas de Programación
+
+Carlos Torres (carlos.torres)
+
+El proceso de programar este TGR lo llevé a cabo en varias etapas
+
+
+En primer lugar estuvo la decisión de cómo representar el tablero de juego y los estados en memoria. La primera idea fue de usar una matriz de celdas, pero
+descarté esta idea porque el uso de memoria era demasiado elevado, además del problema de tener que copiar constantemente los arrays de una estructura a otra
+antes de modificarlos.
+
+Al final opté por representar el tablero de juego en una matriz de celdas de tipos Wall, Floor o Storage, que se inicializa al principio de la ejecución
+y no se modifica en ningún momento. Los distintos estados del juego (posición del jugador y de las cajas se almacenan en un registro inmutable llamado state)
+
+Luego creé una función "parser" que dado un fichero de entrada (un "input_channel") devolviese el tablero de juego junto con el estado inicial.
+
+
+El siguiente paso fue el de crear la función "mover", que dado un estado y un movimiento, devuelve el estado resultante de aplicar ese movimiento.
+En primer lugar opté por crear una función separada "is_valid_move : board -> state -> move -> bool" que devolvía un bool diciendo si un movimiento es o no válido
+(considerando no válidos los movimientos ilegales (moverse hacia una pared, empujar dos cajas..)); y no comprobar nada en la función "mover".
+
+Después cambié este comportamiento a una función "mover" que devuelve un state option, devolviendo Some state si el movimiento es legal, y None si no lo es, ya que
+resultaba en un código más corto y legible.
+
+
+Luego me puse a pensar en la forma de almacenar los estados ya procesados, para evitar repetir cálculos de forma innecesaria. En primer lugar definí una estructura de
+datos nueva, que consistía en una lista de listas de nodos, siendo cada nodo una posición de jugadores y un árbol general con posiciones de cajas.
+
+La estructura en cuestión era esta:
+
+module MoveTree =
+struct
+  type tree =
+      Empty
+    | Tree of (int * int) * tree list
+  let get_root = function Tree ((a,b), lst) -> (a,b)
+  type node2 = {
+    snd : int;
+    boxes : tree list
+  }
+  type node1 = {
+    player_fst : int;
+    player : node2 list
+  }
+  type t = node1 list
+
+  let init_moves len f =
+    (*Esta versión de la función init va desde 1 hasta (len-2) en vez de ir desde 0 hasta (len-1) porque todos los bordes de los tableros son paredes*)
+    let rec aux i n f =
+      if i>=n then []
+      else
+        let r = f i in
+        r :: aux (i+1) n f
+    in
+    if len < 0 then invalid_arg "init"
+    else (aux 1 (len-1) f)
+
+  let make size_x size_y =
+    init_moves size_x (fun i -> {
+          player_fst = i;
+          player = (init_moves size_y
+                      (fun j -> {
+                           snd = j;
+                           boxes = Empty::[]
+                         })
+                   )
+        }
+      )
+  let add state movetree  = ...
+end
+
+Al final me decidí por usar el módulo Set.S de la librería estándar de OCaml porque también está basada en un árbol y además es un árbol binario balanceado,
+por lo que consigue mayor rendimiento en las búsquedas que mi "MoveTree". El uso de memoria hubiese sigo algo menor usando la estructura "MoveTree" pero no
+supone un problema en absoluto.
+
+Cabe destacar que tuve que añadir que las box_list de los registros de tipo state se mantuvieran siempre ordenadas, para garantizar que la función
+Pervasives.compare solo devuelve 0 en caso de que las posiciones son distintas (p.e. [(1,1);(2,2);(3,3)] y [(2,2);(1,1);(3,3)] ambas representan 3 cajas, en las
+posiciones (1,1), (2,2) y (3,3) pero la función Pervasives.compare devuelve un valor distinto de 0 (indicando que son diferentes).
+Esto provocaba que en la coleccion de estados ya visitados hubiese duplicados
+
+En este punto añadí al registro state una move list que almacenase la lista de movimientos necesarios para llegar a ese estado, pero en la colección de estados
+visitados solamente se almacena el estado en si (posición del jugador y de las cajas) para evitar un uso innecesario de memoria
+
+
+El siguiente paso fue implementar el recorrido en anchura, como se recomienda en el enunciado del TGR para garantizar que la primera solución encontrada es óptima.
+
+Lo hice en dos funciones, una función "flood : board -> StateSet.t -> state list -> state list -> state", que se encarga de llevar en dos listas el nivel actual y
+el siguiente del árbol de búsqueda, y va recorriendo secuencialmente el nivel actual, comprobando si ya se tiene una solución y metiendo en el nivel siguiente el
+resultado de procesar cada uno de los estados. Una vez se queda sin estados en el nivel actual, se llama a si misma con el siguiente nivel.
+
+La función "flood" hace uso de otra función "in_depth : board -> StateSet.t -> state -> state list * StateSet.t", que dada una coleccion de estados y un estado, comprueba
+si ese estado ya está en la colección, en cuyo caso devuelve la lista vacía y la colección sin modificar. Si el estado no estaba en la colección, lo añade y devuelve
+una lista con entre 1 y 4 nuevos estados, resultado de aplicar los 4 posibles movimientos al actual (junto con la colección actualizada)
+
+
+El último paso fue añadir 3 heurísticas adicionales a la función "mover" para que considerase como inválidos no solo los movimientos ilegales, si no también algunos
+movimientos que resultarían en tableros irresolubles o simplemente movimientos que resultan inútiles. Las 3 reglas son:
+
+1 - dar como inválido cualquier movimiento que lleve una caja a una esquina, a no ser que esa esquina sea precisamente un "Storage"
+2 - dar como inválido cualquier movimiento que pegue una caja a una pared, si a lo largo de esa pared no hay ningún "Storage"
+3 - dar como inválido cualquier movimiento que implique que el jugador está yendo hacia una zona del tablero en la que no hay ninguna caja ni ningún muro, de forma
+        que inevitablemente va a tener que volver sobre sus pasos, resultando en una solución NO óptima
+
+----------------------------------------------------------------------------------------------------
+
+El resultado es un software que resuelve cualquiera de los 15 tableros de prueba en unos pocos segundos (a excepción del nivel 10, que tarda aprox. medio minuto)
+y da siempre una solución óptima
+
+La orden de compilación es:
+
+ocamlc -o ia ia.mli ia.ml
+
+La orden de ejecución es ./ia (tablero.brd)
+
+El programa saca por la salida estándar la lista de movimientos a realizar para resolver el tablero
+
+Se incluye también una interfaz en formato .mli por si en un futuro se hiciese un módulo a partir de este código. Decidí dejar en la interfaz solo las funciones
+"solve", "print_moves_list" y "string_of_move" porque son las únicas que hacen falta para usar el módulo desde fuera:
+
+"solve tablero" devuelve una move list, que se puede pasar a string con la función "string_of_move", o imprimir con "print_moves_list"

@@ -1,0 +1,41 @@
+
+Usage: sokoban <board-file> [moves-file]
+
+If you provide only the board file, you enter Game mode
+  You have the following keys available:
+    w or i : move the player up
+    a or j : move the player to the left
+    s or k : move the player down
+    d or l : move the player to the right
+    r : reload the board from file
+
+If you also provide a movement file, you enter Solver mode
+  You have the following keys available:
+    f : move the player one step forward according to the movement plan
+    r : reload the board and the plan from files
+
+In both modes you also have available:
+  b : move the player one step back
+  + : increase board size
+  - : decrease board size
+  q : quit
+
+Syntax for the board file:
+  One line for number of columns (max: 20)
+  One line for number of rows (max: 20)
+  And then, one line per row
+  The four edges of the board should be walls
+  You should put one (and only one) player
+  The number of boxes should be equal to the number of storage locations
+  Use the following characters:
+    W : wall
+    . : storage location
+    B : box
+    L : box located
+    + : player
+    space : floor
+
+Syntax for the movement file:
+  One line per move
+  Use the word Up, Down, Left or Right in each line
+
